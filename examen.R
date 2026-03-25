@@ -173,41 +173,47 @@ examen <- function() {
     # 4. RECUENTOS CATEGÓRICOS
     # ==============================================================================
     else if (opcion == "4") {
+
       cat("\n--- VARIABLES CUALITATIVAS ---\n")
+
       cols_cat <- pedir_columnas("¿Qué variables categóricas deseas visualizar?", names(datos_limpios))
+
       
+
       if (length(cols_cat) > 0) {
+
         old_par <- par(ask = TRUE, mfrow = c(1, 2))
-        
+
         for (var in cols_cat) {
-          num_unicos <- length(unique(datos_limpios[[var]]))
-          
-          # Filtro de seguridad: Evitar inundar la consola si la variable es continua
-          if (num_unicos > 30) {
-            cat(sprintf("\n⚠️ SALTANDO '%s': Tiene %d valores únicos. Parece una variable continua, no categórica.\n", var, num_unicos))
-            next # Pasa directamente a la siguiente columna
-          }
-          
+
           cat(sprintf("\nCategoría (%s) | Recuento | Proporción\n", var))
+
           cat("-------------------------------------------------\n")
-          
-          # useNA = "ifany" asegura que si hay valores faltantes también los cuente
-          tabla_frecuencias <- table(datos_limpios[[var]], useNA = "ifany")
+
+          tabla_frecuencias <- table(datos_limpios[[var]])
+
           proporciones <- prop.table(tabla_frecuencias) * 100
+
           
-          # Bucle con formato de texto alineado (%-18s asegura 18 espacios a la izquierda)
+
           for (nivel in names(tabla_frecuencias)) {
-            nombre_nivel <- ifelse(is.na(nivel) || nivel == "", "NA", nivel)
-            cat(sprintf("%-18s | %-8d | %6.2f%%\n", nombre_nivel, tabla_frecuencias[nivel], proporciones[nivel]))
+
+            cat(sprintf("%s\t\t | %d\t    | %.2f%%\n", nivel, tabla_frecuencias[nivel], proporciones[nivel]))
+
           }
+
           
-          # Dibujar gráficos
+
           barplot(tabla_frecuencias, main = paste("Barras:", var), col = "coral", xlab = var, ylab = "Frecuencia")
+
           pie(tabla_frecuencias, main = paste("Proporción:", var), col = rainbow(length(tabla_frecuencias)))
+
         }
-        
+
         par(old_par)
+
       }
+
     }
     
     # ==============================================================================
