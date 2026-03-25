@@ -40,7 +40,7 @@ examen <- function() {
   } else {
     cat("No se encontraron registros repetidos. Tus datos ya están limpios.\n\n")
   }
-  
+
   # ==============================================================================
   # 2. VALORES ESTADÍSTICOS
   # ==============================================================================
@@ -58,7 +58,7 @@ examen <- function() {
   tabla_resultados <- t(sapply(columnas_numericas, mis_estadisticos))
   print(tabla_resultados)
   cat("\n")
-  
+
   # ==============================================================================
   # 3. VALORES FALTANTES
   # ==============================================================================
@@ -70,7 +70,7 @@ examen <- function() {
     cat(sprintf("• '%s': %d valores faltantes (%.2f%% del total).\n", columna, faltantes, porcentaje))
   }
   cat("• Plan de Acción: Dado el bajo porcentaje (o nulo), no se requiere imputación. En caso de detectarse faltantes numéricos, se utilizará la mediana.\n\n")
-  
+
   # ==============================================================================
   # 4. RECUENTOS POR CATEGORÍA
   # ==============================================================================
@@ -91,7 +91,7 @@ examen <- function() {
     }
   }
   cat("\n")
-  
+
   # ==============================================================================
   # 5. PUNTO 5.1 - CORRELACIÓN
   # ==============================================================================
@@ -111,7 +111,7 @@ examen <- function() {
   } else {
     cat("No se encontraron suficientes columnas numéricas especificadas para la correlación.\n")
   }
-  
+
   # ==============================================================================
   # 6. PUNTO 5.2 - RELACIÓN ENTRE VARIABLES NUMÉRICAS
   # ==============================================================================
@@ -151,7 +151,7 @@ examen <- function() {
     }
   }
   cat("=== FIN DEL ANÁLISIS 5.2 ===\n\n")
-  
+
   # ==============================================================================
   # 7. PUNTO 5.3 - RELACIÓN CON LA VARIABLE OBJETIVO
   # ==============================================================================
@@ -193,4 +193,4 @@ examen <- function() {
   cat("\n======================================================\n")
   cat(" ANÁLISIS COMPLETADO CON ÉXITO \n")
   cat("======================================================\n")
-  }
+}
