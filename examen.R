@@ -288,22 +288,41 @@ examen <- function() {
         
         if (var_norm %in% cols_solo_num) {
           
-          # 1. Pedir el número de intervalos
+          # 1. Pedir el nombre de la nueva columna
+          nueva_columna <- readline(prompt = sprintf("¿Qué nombre quieres ponerle a la nueva variable? (Deja en blanco para usar '%s_clasificada'): ", var_norm))
+          nueva_columna <- trimws(nueva_columna)
+          if (nueva_columna == "") {
+            nueva_columna <- paste0(var_norm, "_clasificada")
+          }
+          
+          # 2. Pedir el número de intervalos
           n_grupos_str <- readline(prompt = "¿En cuántas categorías o intervalos quieres dividirla? (ej. 3, 4, 5...): ")
           n_grupos <- suppressWarnings(as.integer(trimws(n_grupos_str)))
           
           if (is.na(n_grupos) || n_grupos < 2) {
             cat("⚠️ El número de grupos debe ser un número entero mayor o igual a 2. Operación cancelada.\n")
           } else {
-            nueva_columna <- paste0(var_norm, "_clasificada")
             
-            # 2. Asignar etiquetas dinámicas
-            mis_etiquetas <- paste("Grupo", 1:n_grupos)
-            if (n_grupos == 3) {
-              mis_etiquetas <- c("Bajo", "Medio", "Alto") # Mantenemos el detalle si son 3
+            # 3. Pedir el nombre de las etiquetas/categorías
+            cat(sprintf("\nVas a dividir los datos en %d categorías.\n", n_grupos))
+            etiquetas_str <- readline(prompt = "Escribe los nombres de las categorías separados por comas (o deja en blanco para automático): ")
+            etiquetas_str <- trimws(etiquetas_str)
+            
+            if (etiquetas_str == "") {
+              mis_etiquetas <- paste("Grupo", 1:n_grupos)
+              if (n_grupos == 3) {
+                mis_etiquetas <- c("Bajo", "Medio", "Alto") # Automático clásico si son 3
+              }
+            } else {
+              mis_etiquetas <- trimws(unlist(strsplit(etiquetas_str, ",")))
+              # Validar que introdujo la cantidad correcta de nombres
+              if (length(mis_etiquetas) != n_grupos) {
+                cat(sprintf("⚠️ Has introducido %d nombres, pero pediste %d grupos. Usaremos nombres automáticos por seguridad.\n", length(mis_etiquetas), n_grupos))
+                mis_etiquetas <- paste("Grupo", 1:n_grupos)
+              }
             }
             
-            # 3. Clasificar los datos
+            # 4. Clasificar los datos
             datos_limpios[[nueva_columna]] <- cut(
               datos_limpios[[var_norm]], 
               breaks = n_grupos, 
@@ -318,7 +337,7 @@ examen <- function() {
             tabla_clasif <- table(datos_limpios[[nueva_columna]], useNA = "ifany")
             print(tabla_clasif)
             
-            # 4. Generar y guardar automáticamente el nuevo archivo CSV
+            # 5. Generar y guardar automáticamente el nuevo archivo CSV
             directorio <- dirname(ruta_archivo)
             nombre_base <- tools::file_path_sans_ext(basename(ruta_archivo)) 
             nueva_ruta <- file.path(directorio, paste0(nombre_base, "_clasificado.csv"))
