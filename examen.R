@@ -36,7 +36,7 @@ examen <- function() {
     cat("5. Matriz de correlación\n")
     cat("6. Relación entre variables numéricas\n")
     cat("7. Relación con la variable objetivo\n")
-    cat("8. Normalizar (Clasificar numérica en Bajo/Medio/Alto)\n")
+    cat("8. Normalizar (Clasificar numérica en intervalos)\n")
     cat("0. Salir\n")
     cat("======================================================\n")
     
@@ -273,7 +273,7 @@ examen <- function() {
     }
     
     # ==============================================================================
-    # 8. NORMALIZAR / CLASIFICAR EN BAJO, MEDIO, ALTO
+    # 8. NORMALIZAR / CLASIFICAR EN INTERVALOS (Personalizado)
     # ==============================================================================
     else if (opcion == "8") {
       cat("\n--- CLASIFICAR VARIABLE NUMÉRICA ---\n")
@@ -283,36 +283,48 @@ examen <- function() {
         cat("⚠️ No hay variables numéricas en el dataset para clasificar.\n")
       } else {
         cat("Columnas numéricas disponibles:", paste(cols_solo_num, collapse = ", "), "\n")
-        var_norm <- readline(prompt = "¿Qué variable numérica quieres clasificar en Bajo/Medio/Alto? ")
+        var_norm <- readline(prompt = "¿Qué variable numérica quieres clasificar? ")
         var_norm <- trimws(var_norm)
         
         if (var_norm %in% cols_solo_num) {
-          nueva_columna <- paste0(var_norm, "_rango")
           
-          # La dividimos en 3 intervalos del mismo tamaño usando cut()
-          datos_limpios[[nueva_columna]] <- cut(
-            datos_limpios[[var_norm]], 
-            breaks = 3, 
-            labels = c("Bajo", "Medio", "Alto"),
-            include.lowest = TRUE
-          )
+          # 1. Pedir el número de intervalos
+          n_grupos_str <- readline(prompt = "¿En cuántas categorías o intervalos quieres dividirla? (ej. 3, 4, 5...): ")
+          n_grupos <- suppressWarnings(as.integer(trimws(n_grupos_str)))
           
-          cat(sprintf("\n¡Éxito! Se ha creado la clasificación para '%s'.\n", var_norm))
-          cat("Resumen de la nueva distribución:\n")
-          cat("-------------------------------------------------\n")
-          
-          # Mostramos cómo ha quedado la clasificación
-          tabla_clasif <- table(datos_limpios[[nueva_columna]], useNA = "ifany")
-          print(tabla_clasif)
-          
-          # Damos la opción de guardar este nuevo dataset
-          guardar <- readline(prompt = "\n¿Deseas guardar el dataset con esta nueva columna añadida? (s/n): ")
-          if (tolower(trimws(guardar)) == "s") {
+          if (is.na(n_grupos) || n_grupos < 2) {
+            cat("⚠️ El número de grupos debe ser un número entero mayor o igual a 2. Operación cancelada.\n")
+          } else {
+            nueva_columna <- paste0(var_norm, "_clasificada")
+            
+            # 2. Asignar etiquetas dinámicas
+            mis_etiquetas <- paste("Grupo", 1:n_grupos)
+            if (n_grupos == 3) {
+              mis_etiquetas <- c("Bajo", "Medio", "Alto") # Mantenemos el detalle si son 3
+            }
+            
+            # 3. Clasificar los datos
+            datos_limpios[[nueva_columna]] <- cut(
+              datos_limpios[[var_norm]], 
+              breaks = n_grupos, 
+              labels = mis_etiquetas,
+              include.lowest = TRUE
+            )
+            
+            cat(sprintf("\n¡Éxito! Se ha creado la columna '%s' dividida en %d grupos.\n", nueva_columna, n_grupos))
+            cat("Resumen de la nueva distribución:\n")
+            cat("-------------------------------------------------\n")
+            
+            tabla_clasif <- table(datos_limpios[[nueva_columna]], useNA = "ifany")
+            print(tabla_clasif)
+            
+            # 4. Generar y guardar automáticamente el nuevo archivo CSV
             directorio <- dirname(ruta_archivo)
             nombre_base <- tools::file_path_sans_ext(basename(ruta_archivo)) 
             nueva_ruta <- file.path(directorio, paste0(nombre_base, "_clasificado.csv"))
             write.table(datos_limpios, file = nueva_ruta, sep = ";", row.names = FALSE, quote = FALSE)
-            cat("¡Archivo guardado en:\n", nueva_ruta, "\n")
+            
+            cat(sprintf("\n✅ ¡Archivo actualizado con éxito! Se ha guardado un nuevo CSV con la columna extra en:\n%s\n", nueva_ruta))
           }
         } else {
           cat("⚠️ La variable introducida no es válida o no es numérica.\n")
