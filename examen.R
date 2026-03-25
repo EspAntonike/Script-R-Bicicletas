@@ -169,35 +169,44 @@ examen <- function() {
     # ==============================================================================
     # 4. RECUENTOS CATEGÓRICOS (Actualizado)
     # ==============================================================================
+    # ==============================================================================
+    # 4. RECUENTOS CATEGÓRICOS
+    # ==============================================================================
     else if (opcion == "4") {
-      cat("\n--- 4.2. Variables Cualitativas (nominales) ---\n")
+      cat("\n--- VARIABLES CUALITATIVAS ---\n")
+      cols_cat <- pedir_columnas("¿Qué variables categóricas deseas visualizar?", names(datos_limpios))
       
-      # Preguntamos qué columnas queremos contar usando tu función auxiliar
-      variables_categoricas <- pedir_columnas("¿Qué variables cualitativas deseas analizar?", names(datos_limpios))
-      
-      if (length(variables_categoricas) > 0) {
-        cat("\n")
-        # Bucle para calcular recuentos y proporciones por cada variable
-        for (var in variables_categoricas) {
+      if (length(cols_cat) > 0) {
+        old_par <- par(ask = TRUE, mfrow = c(1, 2))
+        
+        for (var in cols_cat) {
+          num_unicos <- length(unique(datos_limpios[[var]]))
           
-          cat(sprintf("Categoría (%s) | Recuento | Proporción\n", var))
+          # Filtro de seguridad: Evitar inundar la consola si la variable es continua
+          if (num_unicos > 30) {
+            cat(sprintf("\n⚠️ SALTANDO '%s': Tiene %d valores únicos. Parece una variable continua, no categórica.\n", var, num_unicos))
+            next # Pasa directamente a la siguiente columna
+          }
+          
+          cat(sprintf("\nCategoría (%s) | Recuento | Proporción\n", var))
           cat("-------------------------------------------------\n")
           
-          # Calcular frecuencias absolutas
-          tabla_frecuencias <- table(datos_limpios[[var]])
-          
-          # Calcular proporciones (porcentajes)
+          # useNA = "ifany" asegura que si hay valores faltantes también los cuente
+          tabla_frecuencias <- table(datos_limpios[[var]], useNA = "ifany")
           proporciones <- prop.table(tabla_frecuencias) * 100
           
-          # Imprimir cada fila de la categoría
+          # Bucle con formato de texto alineado (%-18s asegura 18 espacios a la izquierda)
           for (nivel in names(tabla_frecuencias)) {
-            recuento <- tabla_frecuencias[nivel]
-            prop <- proporciones[nivel]
-            
-            cat(sprintf("%s\t\t | %d\t    | %.2f%%\n", nivel, recuento, prop))
+            nombre_nivel <- ifelse(is.na(nivel) || nivel == "", "NA", nivel)
+            cat(sprintf("%-18s | %-8d | %6.2f%%\n", nombre_nivel, tabla_frecuencias[nivel], proporciones[nivel]))
           }
-          cat("\n")
+          
+          # Dibujar gráficos
+          barplot(tabla_frecuencias, main = paste("Barras:", var), col = "coral", xlab = var, ylab = "Frecuencia")
+          pie(tabla_frecuencias, main = paste("Proporción:", var), col = rainbow(length(tabla_frecuencias)))
         }
+        
+        par(old_par)
       }
     }
     
