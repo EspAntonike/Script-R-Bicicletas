@@ -1,5 +1,5 @@
 examen <- function() {
-  # Variable global dentro de la función para almacenar los datos
+  # Variable para almacenar los datos
   datos_limpios <- NULL
   
   # Función auxiliar para pedir columnas por consola
@@ -46,33 +46,49 @@ examen <- function() {
       break
     }
     
-    # Bloqueo de seguridad: No dejar hacer análisis si no hay datos
-    if (opcion != "1" && is.null(datos_limpios)) {
-      cat("\n❌ ERROR: Debes cargar los datos primero (Opción 1).\n")
+    # Validar opción
+    if (!(opcion %in% as.character(1:7))) {
+      cat("⚠️ Opción no válida. Por favor, elige un número del 0 al 7.\n")
       next
     }
     
     # ==============================================================================
-    # 1. CARGA Y LIMPIEZA
+    # CARGA DE DATOS CENTRALIZADA (Se ejecuta en cualquier opción del 1 al 7)
+    # ==============================================================================
+    cat("\nPor favor, selecciona el archivo CSV a procesar en la ventana emergente...\n")
+    ruta_archivo <- file.choose()
+    
+    datos_limpios <- read.csv(ruta_archivo, sep = ";", header = TRUE, stringsAsFactors = FALSE)
+    if(ncol(datos_limpios) == 1) { 
+      datos_limpios <- read.csv(ruta_archivo, sep = ",", header = TRUE, stringsAsFactors = FALSE) 
+    }
+    
+    # Conversión silenciosa de comas a puntos para forzar numéricos en los análisis
+    for (col in names(datos_limpios)) {
+      if (is.character(datos_limpios[[col]])) {
+        intento_num <- suppressWarnings(as.numeric(gsub(",", ".", datos_limpios[[col]])))
+        # Si al convertir no se rompe la columna llenándose de NAs, aplicamos el cambio
+        if (!all(is.na(intento_num) & !is.na(datos_limpios[[col]]))) {
+          datos_limpios[[col]] <- intento_num
+        }
+      }
+    }
+    
+    # ==============================================================================
+    # 1. ANÁLISIS DE REPETICIONES Y LIMPIEZA
     # ==============================================================================
     if (opcion == "1") {
-      cat("\nPor favor, selecciona tu archivo CSV en la ventana emergente...\n")
-      ruta_archivo <- file.choose()
-      
-      datos <- read.csv(ruta_archivo, sep = ";", header = TRUE, stringsAsFactors = FALSE)
-      if(ncol(datos) == 1) { datos <- read.csv(ruta_archivo, sep = ",", header = TRUE, stringsAsFactors = FALSE) }
-      
-      filas_texto <- do.call(paste, c(datos, sep = "|"))
+      filas_texto <- do.call(paste, c(datos_limpios, sep = "|"))
       frecuencias <- as.data.frame(table(filas_texto))
       
       registros_unicos <- sum(frecuencias$Freq == 1)
       duplicados_exactos <- sum(frecuencias$Freq == 2)
       triplicados_exactos <- sum(frecuencias$Freq == 3)
       mas_de_tres <- sum(frecuencias$Freq > 3)
-      num_filas_extra <- sum(duplicated(datos))
+      num_filas_extra <- sum(duplicated(datos_limpios))
       
       cat("\n--- ANÁLISIS DE REPETICIONES ---\n")
-      cat("Total de filas:", nrow(datos), "\n")
+      cat("Total de filas:", nrow(datos_limpios), "\n")
       cat("Registros únicos:", registros_unicos, "\n")
       cat("Duplicados:", duplicados_exactos, "\n")
       cat("Triplicados:", triplicados_exactos, "\n")
@@ -80,27 +96,17 @@ examen <- function() {
       cat("Total sobrantes a eliminar:", num_filas_extra, "\n")
       cat("--------------------------------\n")
       
-      datos_limpios <- unique(datos)
-      
-      # Conversión silenciosa de comas a puntos para forzar numéricos
-      for (col in names(datos_limpios)) {
-        if (is.character(datos_limpios[[col]])) {
-          intento_num <- suppressWarnings(as.numeric(gsub(",", ".", datos_limpios[[col]])))
-          # Si al convertir no se rompe la columna llenándose de NAs, aplicamos el cambio
-          if (!all(is.na(intento_num) & !is.na(datos_limpios[[col]]))) {
-            datos_limpios[[col]] <- intento_num
-          }
-        }
-      }
+      # Eliminar duplicados
+      datos_limpios <- unique(datos_limpios)
       
       if (num_filas_extra > 0) {
         directorio <- dirname(ruta_archivo)
         nombre_base <- tools::file_path_sans_ext(basename(ruta_archivo)) 
         nueva_ruta <- file.path(directorio, paste0(nombre_base, "_limpio.csv"))
         write.table(datos_limpios, file = nueva_ruta, sep = ";", row.names = FALSE, quote = FALSE)
-        cat("¡Éxito! Archivo limpio guardado en:\n", nueva_ruta, "\n")
+        cat("¡Éxito! Archivo limpio y sin duplicados guardado en:\n", nueva_ruta, "\n")
       } else {
-        cat("Los datos ya estaban limpios.\n")
+        cat("Los datos ya estaban limpios (sin filas duplicadas).\n")
       }
     }
     
@@ -109,7 +115,6 @@ examen <- function() {
     # ==============================================================================
     else if (opcion == "2") {
       cat("\n--- ESTADÍSTICAS DESCRIPTIVAS ---\n")
-      # Filtramos automáticamente para mostrar solo las que son numéricas y evitar errores
       cols_solo_num <- names(datos_limpios)[sapply(datos_limpios, is.numeric)]
       cols_num <- pedir_columnas("¿Qué columnas numéricas quieres analizar?", cols_solo_num)
       
@@ -143,9 +148,19 @@ examen <- function() {
     # ==============================================================================
     else if (opcion == "3") {
       cat("\n--- VALORES FALTANTES ---\n")
+      valor_na <- readline(prompt = "¿Qué texto/valor representa los faltantes? (Deja vacío para considerar solo los 'NA' de R): ")
+      valor_na <- trimws(valor_na)
+      
       total_filas <- nrow(datos_limpios)
       for (columna in names(datos_limpios)) {
-        faltantes <- sum(is.na(datos_limpios[[columna]]))
+        if (valor_na == "") {
+          # Si se deja vacío, solo contamos los NA por defecto
+          faltantes <- sum(is.na(datos_limpios[[columna]]))
+        } else {
+          # Si el usuario introdujo un valor (ej: "?"), buscamos ese valor y también los NA nativos por seguridad
+          faltantes <- sum(is.na(datos_limpios[[columna]]) | datos_limpios[[columna]] == valor_na, na.rm = TRUE)
+        }
+        
         porcentaje <- round((faltantes / total_filas) * 100, 2)
         cat(sprintf("• '%s': %d valores faltantes (%.2f%% del total).\n", columna, faltantes, porcentaje))
       }
@@ -252,12 +267,8 @@ examen <- function() {
           print(agrupado)
         }
       } else {
-        cat("⚠️ La variable objetivo introducida no existe.\n")
+        cat("⚠️ La variable objetivo introducida no existe en el archivo seleccionado.\n")
       }
-    }
-    
-    else {
-      cat("⚠️ Opción no válida. Por favor, elige un número del 0 al 7.\n")
     }
   }
 }
