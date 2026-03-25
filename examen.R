@@ -32,7 +32,7 @@ examen <- function() {
     cat("1. Carga y limpieza de datos (Borrar duplicados)\n")
     cat("2. Valores estadísticos y visualización de distribución\n")
     cat("3. Valores faltantes\n")
-    cat("4. Recuentos por categoría y proporciones\n")
+    cat("4. Recuentos por categoría y visualización\n")
     cat("5. Matriz de correlación\n")
     cat("6. Relación entre variables numéricas\n")
     cat("7. Relación con la variable objetivo\n")
@@ -167,53 +167,29 @@ examen <- function() {
     }
     
     # ==============================================================================
-    # 4. RECUENTOS CATEGÓRICOS (Actualizado)
-    # ==============================================================================
-    # ==============================================================================
     # 4. RECUENTOS CATEGÓRICOS
     # ==============================================================================
     else if (opcion == "4") {
-
       cat("\n--- VARIABLES CUALITATIVAS ---\n")
-
       cols_cat <- pedir_columnas("¿Qué variables categóricas deseas visualizar?", names(datos_limpios))
-
       
-
       if (length(cols_cat) > 0) {
-
         old_par <- par(ask = TRUE, mfrow = c(1, 2))
-
         for (var in cols_cat) {
-
           cat(sprintf("\nCategoría (%s) | Recuento | Proporción\n", var))
-
           cat("-------------------------------------------------\n")
-
           tabla_frecuencias <- table(datos_limpios[[var]])
-
           proporciones <- prop.table(tabla_frecuencias) * 100
-
           
-
           for (nivel in names(tabla_frecuencias)) {
-
             cat(sprintf("%s\t\t | %d\t    | %.2f%%\n", nivel, tabla_frecuencias[nivel], proporciones[nivel]))
-
           }
-
           
-
           barplot(tabla_frecuencias, main = paste("Barras:", var), col = "coral", xlab = var, ylab = "Frecuencia")
-
           pie(tabla_frecuencias, main = paste("Proporción:", var), col = rainbow(length(tabla_frecuencias)))
-
         }
-
         par(old_par)
-
       }
-
     }
     
     # ==============================================================================
