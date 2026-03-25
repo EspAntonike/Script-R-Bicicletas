@@ -264,7 +264,7 @@ examen <- function() {
           cat(sprintf("\n• Promedio de '%s' según '%s':\n", target, cat_var))
           agrupado <- aggregate(datos_limpios[[target]] ~ datos_limpios[[cat_var]], FUN = mean, na.rm = TRUE)
           colnames(agrupado) <- c(cat_var, paste("Media de", target))
-          print(agrupado)
+          print(agrupado, row.names = FALSE)
         }
       } else {
         cat("⚠️ La variable objetivo introducida no existe en el archivo seleccionado.\n")
