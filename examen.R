@@ -30,7 +30,6 @@ examen <- function() {
   # Guardar datos limpios para el resto del análisis
   datos_limpios <- unique(datos)
 
-  # --- ¡NUEVO!: SOLUCIÓN AL ERROR DE NÚMEROS COMO TEXTO ---
   # Forzamos las columnas a ser numéricas (cambiando comas por puntos si las hay)
   columnas_posibles <- c("temp", "atemp", "humidity", "windspeed", "count", "season", "weather", "workingday", "holiday")
   for (col in columnas_posibles) {
@@ -38,7 +37,6 @@ examen <- function() {
       datos_limpios[[col]] <- suppressWarnings(as.numeric(gsub(",", ".", as.character(datos_limpios[[col]]))))
     }
   }
-  # ---------------------------------------------------------
   
   if (num_filas_extra > 0) {
     directorio <- dirname(ruta_archivo)
@@ -51,8 +49,12 @@ examen <- function() {
     cat("No se encontraron registros repetidos. Tus datos ya están limpios.\n\n")
   }
 
+  # --- CONFIGURACIÓN DE GRÁFICOS ---
+  # Hacemos que R pregunte antes de pasar al siguiente gráfico para que no pasen muy rápido
+  old_par <- par(ask = TRUE)
+
   # ==============================================================================
-  # 2. VALORES ESTADÍSTICOS
+  # 2. VALORES ESTADÍSTICOS Y VISUALIZACIÓN DE DISTRIBUCIÓN
   # ==============================================================================
   cat("--- ESTADÍSTICAS DESCRIPTIVAS ---\n")
   columnas_numericas <- datos_limpios[ , sapply(datos_limpios, is.numeric)]
@@ -67,6 +69,22 @@ examen <- function() {
   
   tabla_resultados <- t(sapply(columnas_numericas, mis_estadisticos))
   print(tabla_resultados)
+  
+  cat("\n=> Generando Histogramas y Boxplots en la ventana de gráficos...\n")
+  cat("=> (Pulsa ENTER en la consola para ver el siguiente gráfico)\n")
+  
+  for (col in names(columnas_numericas)) {
+    # Ignoramos identificadores si los hay (como 'datetime') para no graficarlos sin sentido
+    if(col != "datetime") {
+      par(mfrow = c(1, 2)) # Divide la ventana gráfica en 2 columnas
+      # Histograma
+      hist(columnas_numericas[[col]], main = paste("Distribución:", col), 
+           xlab = col, col = "lightblue", border = "black")
+      # Boxplot
+      boxplot(columnas_numericas[[col]], main = paste("Boxplot:", col), 
+              ylab = col, col = "lightgreen", outcol = "red", outpch = 19)
+    }
+  }
   cat("\n")
 
   # ==============================================================================
@@ -82,7 +100,7 @@ examen <- function() {
   cat("• Plan de Acción: Dado el bajo porcentaje (o nulo), no se requiere imputación. En caso de detectarse faltantes numéricos, se utilizará la mediana.\n\n")
 
   # ==============================================================================
-  # 4. RECUENTOS POR CATEGORÍA
+  # 4. RECUENTOS POR CATEGORÍA Y VISUALIZACIÓN
   # ==============================================================================
   cat("--- 4.2. Variables Cualitativas (nominales) ---\n")
   variables_categoricas <- c("season", "weather", "workingday", "holiday")
@@ -98,6 +116,11 @@ examen <- function() {
     for (nivel in names(tabla_frecuencias)) {
       cat(sprintf("%s\t\t | %d\t    | %.2f%%\n", nivel, tabla_frecuencias[nivel], proporciones[nivel]))
     }
+    
+    # Visualización cualitativa
+    par(mfrow = c(1, 2)) # Volvemos a dividir en 2 para barras y circular
+    barplot(tabla_frecuencias, main = paste("Barras:", var), col = "coral", xlab = var, ylab = "Frecuencia")
+    pie(tabla_frecuencias, main = paste("Proporción:", var), col = rainbow(length(tabla_frecuencias)))
   }
   cat("\n")
 
@@ -198,6 +221,10 @@ examen <- function() {
       cat("o Hallazgo: El clima despejado cuenta con el promedio más alto.\n")
     }
   }
+
+  # --- RESTAURAR CONFIGURACIÓN DE GRÁFICOS ---
+  par(old_par) # Devuelve R a su comportamiento normal sin pedir "Enter"
+  par(mfrow = c(1, 1)) 
   
   cat("\n======================================================\n")
   cat(" ANÁLISIS COMPLETADO CON ÉXITO \n")
