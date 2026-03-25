@@ -1,8 +1,8 @@
 examen <- function() {
-  # Variable global dentro de la función para almacenar los datos entre opciones
+  # Variable global dentro de la función para almacenar los datos
   datos_limpios <- NULL
   
-  # Función auxiliar para pedir columnas por consola de forma robusta
+  # Función auxiliar para pedir columnas por consola
   pedir_columnas <- function(mensaje, opciones_validas) {
     cat("\n>>", mensaje, "\n")
     cat("Columnas disponibles:", paste(opciones_validas, collapse = ", "), "\n")
@@ -12,7 +12,6 @@ examen <- function() {
       return(opciones_validas)
     }
     
-    # Limpiar y separar la entrada
     cols_elegidas <- trimws(unlist(strsplit(entrada, ",")))
     cols_validas <- cols_elegidas[cols_elegidas %in% opciones_validas]
     
@@ -30,7 +29,7 @@ examen <- function() {
     cat("\n======================================================\n")
     cat("                 MENÚ DE ANÁLISIS DE DATOS            \n")
     cat("======================================================\n")
-    cat("1. Cargar y limpieza de datos (Borrar duplicados)\n")
+    cat("1. Carga y limpieza de datos (Borrar duplicados)\n")
     cat("2. Valores estadísticos y visualización de distribución\n")
     cat("3. Valores faltantes\n")
     cat("4. Recuentos por categoría y visualización\n")
@@ -83,10 +82,15 @@ examen <- function() {
       
       datos_limpios <- unique(datos)
       
-      # Conversión dinámica a numérico
-      columnas_a_convertir <- pedir_columnas("¿Qué columnas deseas forzar a numéricas? (Cambia comas por puntos)", names(datos_limpios))
-      for (col in columnas_a_convertir) {
-        datos_limpios[[col]] <- suppressWarnings(as.numeric(gsub(",", ".", as.character(datos_limpios[[col]]))))
+      # Conversión silenciosa de comas a puntos para forzar numéricos
+      for (col in names(datos_limpios)) {
+        if (is.character(datos_limpios[[col]])) {
+          intento_num <- suppressWarnings(as.numeric(gsub(",", ".", datos_limpios[[col]])))
+          # Si al convertir no se rompe la columna llenándose de NAs, aplicamos el cambio
+          if (!all(is.na(intento_num) & !is.na(datos_limpios[[col]]))) {
+            datos_limpios[[col]] <- intento_num
+          }
+        }
       }
       
       if (num_filas_extra > 0) {
@@ -105,13 +109,14 @@ examen <- function() {
     # ==============================================================================
     else if (opcion == "2") {
       cat("\n--- ESTADÍSTICAS DESCRIPTIVAS ---\n")
-      cols_num <- pedir_columnas("¿Qué columnas numéricas quieres analizar?", names(datos_limpios))
+      # Filtramos automáticamente para mostrar solo las que son numéricas y evitar errores
+      cols_solo_num <- names(datos_limpios)[sapply(datos_limpios, is.numeric)]
+      cols_num <- pedir_columnas("¿Qué columnas numéricas quieres analizar?", cols_solo_num)
       
       if (length(cols_num) > 0) {
         datos_num <- datos_limpios[, cols_num, drop = FALSE]
         
         mis_estadisticos <- function(x) {
-          if(!is.numeric(x)) return(rep(NA, 5))
           c(Minimo = min(x, na.rm = TRUE),
             Maximo = max(x, na.rm = TRUE),
             Media = round(mean(x, na.rm = TRUE), 2),
@@ -126,10 +131,8 @@ examen <- function() {
         old_par <- par(ask = TRUE, mfrow = c(1, 2))
         
         for (col in cols_num) {
-          if(is.numeric(datos_num[[col]])) {
-            hist(datos_num[[col]], main = paste("Distribución:", col), xlab = col, col = "lightblue", border = "black")
-            boxplot(datos_num[[col]], main = paste("Boxplot:", col), ylab = col, col = "lightgreen", outcol = "red", outpch = 19)
-          }
+          hist(datos_num[[col]], main = paste("Distribución:", col), xlab = col, col = "lightblue", border = "black")
+          boxplot(datos_num[[col]], main = paste("Boxplot:", col), ylab = col, col = "lightgreen", outcol = "red", outpch = 19)
         }
         par(old_par)
       }
@@ -179,14 +182,15 @@ examen <- function() {
     # ==============================================================================
     else if (opcion == "5") {
       cat("\n--- MATRIZ DE CORRELACIÓN ---\n")
-      cols_cor <- pedir_columnas("¿Qué variables numéricas quieres incluir en la correlación?", names(datos_limpios))
+      cols_solo_num <- names(datos_limpios)[sapply(datos_limpios, is.numeric)]
+      cols_cor <- pedir_columnas("¿Qué variables numéricas quieres incluir en la correlación?", cols_solo_num)
       
       if(length(cols_cor) > 1) {
         vars_num <- datos_limpios[, cols_cor, drop = FALSE]
         matriz_cor <- cor(vars_num, use = "complete.obs", method = "pearson")
         print(round(matriz_cor, 2))
       } else {
-        cat("⚠️ Necesitas al menos 2 columnas para una correlación.\n")
+        cat("⚠️ Necesitas al menos 2 columnas numéricas para una correlación.\n")
       }
     }
     
@@ -195,7 +199,8 @@ examen <- function() {
     # ==============================================================================
     else if (opcion == "6") {
       cat("\n--- RELACIÓN ENTRE VARIABLES NUMÉRICAS ---\n")
-      cols_rel <- pedir_columnas("¿Qué variables numéricas quieres comparar entre sí?", names(datos_limpios))
+      cols_solo_num <- names(datos_limpios)[sapply(datos_limpios, is.numeric)]
+      cols_rel <- pedir_columnas("¿Qué variables numéricas quieres comparar entre sí?", cols_solo_num)
       
       if(length(cols_rel) > 1) {
         datos_filtrados <- datos_limpios[, cols_rel, drop = FALSE]
@@ -242,7 +247,6 @@ examen <- function() {
         
         for (cat_var in cols_cat_target) {
           cat(sprintf("\n• Promedio de '%s' según '%s':\n", target, cat_var))
-          # Agrupación dinámica en lugar de hardcodear 1, 2, 3...
           agrupado <- aggregate(datos_limpios[[target]] ~ datos_limpios[[cat_var]], FUN = mean, na.rm = TRUE)
           colnames(agrupado) <- c(cat_var, paste("Media de", target))
           print(agrupado)
