@@ -29,6 +29,16 @@ examen <- function() {
   
   # Guardar datos limpios para el resto del análisis
   datos_limpios <- unique(datos)
+
+  # --- ¡NUEVO!: SOLUCIÓN AL ERROR DE NÚMEROS COMO TEXTO ---
+  # Forzamos las columnas a ser numéricas (cambiando comas por puntos si las hay)
+  columnas_posibles <- c("temp", "atemp", "humidity", "windspeed", "count", "season", "weather", "workingday", "holiday")
+  for (col in columnas_posibles) {
+    if (col %in% names(datos_limpios)) {
+      datos_limpios[[col]] <- suppressWarnings(as.numeric(gsub(",", ".", as.character(datos_limpios[[col]]))))
+    }
+  }
+  # ---------------------------------------------------------
   
   if (num_filas_extra > 0) {
     directorio <- dirname(ruta_archivo)
@@ -77,7 +87,6 @@ examen <- function() {
   cat("--- 4.2. Variables Cualitativas (nominales) ---\n")
   variables_categoricas <- c("season", "weather", "workingday", "holiday")
   
-  # Verificamos que las columnas existan en el dataset antes de iterar
   vars_existentes <- variables_categoricas[variables_categoricas %in% names(datos_limpios)]
   
   for (var in vars_existentes) {
