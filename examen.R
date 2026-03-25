@@ -32,7 +32,7 @@ examen <- function() {
     cat("1. Carga y limpieza de datos (Borrar duplicados)\n")
     cat("2. Valores estadísticos y visualización de distribución\n")
     cat("3. Valores faltantes\n")
-    cat("4. Recuentos por categoría y visualización\n")
+    cat("4. Recuentos por categoría y proporciones\n")
     cat("5. Matriz de correlación\n")
     cat("6. Relación entre variables numéricas\n")
     cat("7. Relación con la variable objetivo\n")
@@ -167,28 +167,37 @@ examen <- function() {
     }
     
     # ==============================================================================
-    # 4. RECUENTOS CATEGÓRICOS
+    # 4. RECUENTOS CATEGÓRICOS (Actualizado)
     # ==============================================================================
     else if (opcion == "4") {
-      cat("\n--- VARIABLES CUALITATIVAS ---\n")
-      cols_cat <- pedir_columnas("¿Qué variables categóricas deseas visualizar?", names(datos_limpios))
+      cat("\n--- 4.2. Variables Cualitativas (nominales) ---\n")
       
-      if (length(cols_cat) > 0) {
-        old_par <- par(ask = TRUE, mfrow = c(1, 2))
-        for (var in cols_cat) {
-          cat(sprintf("\nCategoría (%s) | Recuento | Proporción\n", var))
+      # Preguntamos qué columnas queremos contar usando tu función auxiliar
+      variables_categoricas <- pedir_columnas("¿Qué variables cualitativas deseas analizar?", names(datos_limpios))
+      
+      if (length(variables_categoricas) > 0) {
+        cat("\n")
+        # Bucle para calcular recuentos y proporciones por cada variable
+        for (var in variables_categoricas) {
+          
+          cat(sprintf("Categoría (%s) | Recuento | Proporción\n", var))
           cat("-------------------------------------------------\n")
+          
+          # Calcular frecuencias absolutas
           tabla_frecuencias <- table(datos_limpios[[var]])
+          
+          # Calcular proporciones (porcentajes)
           proporciones <- prop.table(tabla_frecuencias) * 100
           
+          # Imprimir cada fila de la categoría
           for (nivel in names(tabla_frecuencias)) {
-            cat(sprintf("%s\t\t | %d\t    | %.2f%%\n", nivel, tabla_frecuencias[nivel], proporciones[nivel]))
+            recuento <- tabla_frecuencias[nivel]
+            prop <- proporciones[nivel]
+            
+            cat(sprintf("%s\t\t | %d\t    | %.2f%%\n", nivel, recuento, prop))
           }
-          
-          barplot(tabla_frecuencias, main = paste("Barras:", var), col = "coral", xlab = var, ylab = "Frecuencia")
-          pie(tabla_frecuencias, main = paste("Proporción:", var), col = rainbow(length(tabla_frecuencias)))
+          cat("\n")
         }
-        par(old_par)
       }
     }
     
