@@ -1,232 +1,259 @@
 examen <- function() {
-  # ==============================================================================
-  # 1. CARGA Y LIMPIEZA DE DATOS (BORRAR DUPLICADOS)
-  # ==============================================================================
-  cat("Por favor, selecciona tu archivo CSV en la ventana emergente...\n")
-  ruta_archivo <- file.choose()
+  # Variable global dentro de la función para almacenar los datos entre opciones
+  datos_limpios <- NULL
   
-  # Leer el archivo (probamos con ";" primero, si falla la estructura probamos ",")
-  datos <- read.csv(ruta_archivo, sep = ";", header = TRUE, stringsAsFactors = FALSE)
-  if(ncol(datos) == 1) { datos <- read.csv(ruta_archivo, sep = ",", header = TRUE, stringsAsFactors = FALSE) }
-  
-  filas_texto <- do.call(paste, c(datos, sep = "|"))
-  frecuencias <- as.data.frame(table(filas_texto))
-  
-  registros_unicos <- sum(frecuencias$Freq == 1)
-  duplicados_exactos <- sum(frecuencias$Freq == 2)
-  triplicados_exactos <- sum(frecuencias$Freq == 3)
-  mas_de_tres <- sum(frecuencias$Freq > 3)
-  num_filas_extra <- sum(duplicated(datos))
-  
-  cat("\n--- ANÁLISIS DE REPETICIONES ---\n")
-  cat("Total de filas en el archivo original:", nrow(datos), "\n")
-  cat("Registros que aparecen 1 sola vez (sanos):", registros_unicos, "\n")
-  cat("Registros DUPLICADOS:", duplicados_exactos, "\n")
-  cat("Registros TRIPLICADOS:", triplicados_exactos, "\n")
-  if (mas_de_tres > 0) cat("Registros que aparecen MÁS DE 3 VECES:", mas_de_tres, "\n")
-  cat("Total de filas repetidas (sobrantes) a eliminar:", num_filas_extra, "\n")
-  cat("--------------------------------\n")
-  
-  # Guardar datos limpios para el resto del análisis
-  datos_limpios <- unique(datos)
-
-  # Forzamos las columnas a ser numéricas (cambiando comas por puntos si las hay)
-  columnas_posibles <- c("temp", "atemp", "humidity", "windspeed", "count", "season", "weather", "workingday", "holiday")
-  for (col in columnas_posibles) {
-    if (col %in% names(datos_limpios)) {
-      datos_limpios[[col]] <- suppressWarnings(as.numeric(gsub(",", ".", as.character(datos_limpios[[col]]))))
-    }
-  }
-  
-  if (num_filas_extra > 0) {
-    directorio <- dirname(ruta_archivo)
-    nombre_base <- tools::file_path_sans_ext(basename(ruta_archivo)) 
-    nueva_ruta <- file.path(directorio, paste0(nombre_base, "_limpio.csv"))
+  # Función auxiliar para pedir columnas por consola de forma robusta
+  pedir_columnas <- function(mensaje, opciones_validas) {
+    cat("\n>>", mensaje, "\n")
+    cat("Columnas disponibles:", paste(opciones_validas, collapse = ", "), "\n")
+    entrada <- readline(prompt = "Escribe los nombres separados por comas (o 'todas'): ")
     
-    write.table(datos_limpios, file = nueva_ruta, sep = ";", row.names = FALSE, quote = FALSE)
-    cat("¡Éxito! Se han eliminado los excesos.\nEl nuevo archivo limpio se ha guardado en:\n", nueva_ruta, "\n\n")
-  } else {
-    cat("No se encontraron registros repetidos. Tus datos ya están limpios.\n\n")
-  }
-
-  # --- CONFIGURACIÓN DE GRÁFICOS ---
-  # Hacemos que R pregunte antes de pasar al siguiente gráfico para que no pasen muy rápido
-  old_par <- par(ask = TRUE)
-
-  # ==============================================================================
-  # 2. VALORES ESTADÍSTICOS Y VISUALIZACIÓN DE DISTRIBUCIÓN
-  # ==============================================================================
-  cat("--- ESTADÍSTICAS DESCRIPTIVAS ---\n")
-  columnas_numericas <- datos_limpios[ , sapply(datos_limpios, is.numeric)]
-  
-  mis_estadisticos <- function(x) {
-    c(Minimo = min(x, na.rm = TRUE),
-      Maximo = max(x, na.rm = TRUE),
-      Media = round(mean(x, na.rm = TRUE), 2),
-      Mediana = median(x, na.rm = TRUE),
-      Desv_Estandar = round(sd(x, na.rm = TRUE), 2))
-  }
-  
-  tabla_resultados <- t(sapply(columnas_numericas, mis_estadisticos))
-  print(tabla_resultados)
-  
-  cat("\n=> Generando Histogramas y Boxplots en la ventana de gráficos...\n")
-  cat("=> (Pulsa ENTER en la consola para ver el siguiente gráfico)\n")
-  
-  for (col in names(columnas_numericas)) {
-    # Ignoramos identificadores si los hay (como 'datetime') para no graficarlos sin sentido
-    if(col != "datetime") {
-      par(mfrow = c(1, 2)) # Divide la ventana gráfica en 2 columnas
-      # Histograma
-      hist(columnas_numericas[[col]], main = paste("Distribución:", col), 
-           xlab = col, col = "lightblue", border = "black")
-      # Boxplot
-      boxplot(columnas_numericas[[col]], main = paste("Boxplot:", col), 
-              ylab = col, col = "lightgreen", outcol = "red", outpch = 19)
-    }
-  }
-  cat("\n")
-
-  # ==============================================================================
-  # 3. VALORES FALTANTES
-  # ==============================================================================
-  cat("--- 3.1. Valores Faltantes (Missing Values) ---\n")
-  total_filas <- nrow(datos_limpios)
-  for (columna in names(datos_limpios)) {
-    faltantes <- sum(is.na(datos_limpios[[columna]]))
-    porcentaje <- round((faltantes / total_filas) * 100, 2)
-    cat(sprintf("• '%s': %d valores faltantes (%.2f%% del total).\n", columna, faltantes, porcentaje))
-  }
-  cat("• Plan de Acción: Dado el bajo porcentaje (o nulo), no se requiere imputación. En caso de detectarse faltantes numéricos, se utilizará la mediana.\n\n")
-
-  # ==============================================================================
-  # 4. RECUENTOS POR CATEGORÍA Y VISUALIZACIÓN
-  # ==============================================================================
-  cat("--- 4.2. Variables Cualitativas (nominales) ---\n")
-  variables_categoricas <- c("season", "weather", "workingday", "holiday")
-  
-  vars_existentes <- variables_categoricas[variables_categoricas %in% names(datos_limpios)]
-  
-  for (var in vars_existentes) {
-    cat(sprintf("\nCategoría (%s) | Recuento | Proporción\n", var))
-    cat("-------------------------------------------------\n")
-    tabla_frecuencias <- table(datos_limpios[[var]])
-    proporciones <- prop.table(tabla_frecuencias) * 100
-    
-    for (nivel in names(tabla_frecuencias)) {
-      cat(sprintf("%s\t\t | %d\t    | %.2f%%\n", nivel, tabla_frecuencias[nivel], proporciones[nivel]))
+    if (tolower(trimws(entrada)) == "todas") {
+      return(opciones_validas)
     }
     
-    # Visualización cualitativa
-    par(mfrow = c(1, 2)) # Volvemos a dividir en 2 para barras y circular
-    barplot(tabla_frecuencias, main = paste("Barras:", var), col = "coral", xlab = var, ylab = "Frecuencia")
-    pie(tabla_frecuencias, main = paste("Proporción:", var), col = rainbow(length(tabla_frecuencias)))
-  }
-  cat("\n")
-
-  # ==============================================================================
-  # 5. PUNTO 5.1 - CORRELACIÓN
-  # ==============================================================================
-  cat("--- 5.1. Matriz de Correlación ---\n")
-  cols_cor <- c("temp", "atemp", "humidity", "windspeed", "count")
-  cols_cor_existentes <- cols_cor[cols_cor %in% names(datos_limpios)]
-  
-  if(length(cols_cor_existentes) > 1) {
-    vars_num <- datos_limpios[, cols_cor_existentes]
-    matriz_cor <- cor(vars_num, use = "complete.obs", method = "pearson")
-    print(round(matriz_cor, 2))
+    # Limpiar y separar la entrada
+    cols_elegidas <- trimws(unlist(strsplit(entrada, ",")))
+    cols_validas <- cols_elegidas[cols_elegidas %in% opciones_validas]
     
-    if(all(c("temp", "count") %in% names(datos_limpios))) {
-      cat("\n--- Test de correlación (temp vs count) ---\n")
-      print(cor.test(datos_limpios$temp, datos_limpios$count, method = "pearson"))
+    if (length(cols_validas) == 0) {
+      cat("⚠️ Ninguna columna válida introducida. Inténtalo de nuevo.\n")
+    } else if (length(cols_validas) < length(cols_elegidas)) {
+      cat("⚠️ Se omitieron algunas columnas porque no existen en los datos.\n")
     }
-  } else {
-    cat("No se encontraron suficientes columnas numéricas especificadas para la correlación.\n")
+    
+    return(cols_validas)
   }
 
-  # ==============================================================================
-  # 6. PUNTO 5.2 - RELACIÓN ENTRE VARIABLES NUMÉRICAS
-  # ==============================================================================
-  cat("\n=== INICIANDO ANÁLISIS 5.2 (Variables Numéricas) ===\n")
-  if(length(cols_cor_existentes) > 1) {
-    datos_filtrados <- datos_limpios[, cols_cor_existentes]
-    n <- length(cols_cor_existentes)
+  # Bucle principal del menú
+  while (TRUE) {
+    cat("\n======================================================\n")
+    cat("                 MENÚ DE ANÁLISIS DE DATOS            \n")
+    cat("======================================================\n")
+    cat("1. Cargar y limpieza de datos (Borrar duplicados)\n")
+    cat("2. Valores estadísticos y visualización de distribución\n")
+    cat("3. Valores faltantes\n")
+    cat("4. Recuentos por categoría y visualización\n")
+    cat("5. Matriz de correlación\n")
+    cat("6. Relación entre variables numéricas\n")
+    cat("7. Relación con la variable objetivo\n")
+    cat("0. Salir\n")
+    cat("======================================================\n")
     
-    for(i in 1:(n-1)) {
-      for(j in (i+1):n) {
-        var1_nombre <- cols_cor_existentes[i]
-        var2_nombre <- cols_cor_existentes[j]
-        var1 <- datos_filtrados[[var1_nombre]]
-        var2 <- datos_filtrados[[var2_nombre]]
-        
-        tabla <- table(var1, var2)
-        test_chi <- suppressWarnings(chisq.test(tabla, simulate.p.value = TRUE))
-        p_valor <- test_chi$p.value
-        
-        correlacion <- cor(var1, var2, use = "complete.obs")
-        direccion <- ifelse(correlacion > 0, "positiva", "negativa")
-        
-        if(is.na(correlacion)) { fuerza <- "Desconocida" }
-        else if(abs(correlacion) >= 0.7) { fuerza <- "Alta" } 
-        else if(abs(correlacion) >= 0.4) { fuerza <- "Moderada" } 
-        else { fuerza <- "Débil" }
-        
-        cat(sprintf("\n--- Relación: %s vs %s ---\n", var1_nombre, var2_nombre))
-        cat(sprintf("• Chi-cuadrado p-valor: %.4f ", p_valor))
-        cat(ifelse(p_valor < 0.05, "(Relación significativa).\n", "(No hay relación significativa).\n"))
-        cat(sprintf("• Correlación: %.3f (%s, %s).\n", correlacion, fuerza, direccion))
-        
-        if(fuerza %in% c("Alta", "Moderada")) {
-          cat("• HALLAZGO CLAVE: Correlación", fuerza, "y", direccion, "entre", var1_nombre, "y", var2_nombre, ".\n")
-        }
+    opcion <- readline(prompt = "Elige una opción (0-7): ")
+    
+    if (opcion == "0") {
+      cat("¡Saliendo del programa! Hasta pronto.\n")
+      break
+    }
+    
+    # Bloqueo de seguridad: No dejar hacer análisis si no hay datos
+    if (opcion != "1" && is.null(datos_limpios)) {
+      cat("\n❌ ERROR: Debes cargar los datos primero (Opción 1).\n")
+      next
+    }
+    
+    # ==============================================================================
+    # 1. CARGA Y LIMPIEZA
+    # ==============================================================================
+    if (opcion == "1") {
+      cat("\nPor favor, selecciona tu archivo CSV en la ventana emergente...\n")
+      ruta_archivo <- file.choose()
+      
+      datos <- read.csv(ruta_archivo, sep = ";", header = TRUE, stringsAsFactors = FALSE)
+      if(ncol(datos) == 1) { datos <- read.csv(ruta_archivo, sep = ",", header = TRUE, stringsAsFactors = FALSE) }
+      
+      filas_texto <- do.call(paste, c(datos, sep = "|"))
+      frecuencias <- as.data.frame(table(filas_texto))
+      
+      registros_unicos <- sum(frecuencias$Freq == 1)
+      duplicados_exactos <- sum(frecuencias$Freq == 2)
+      triplicados_exactos <- sum(frecuencias$Freq == 3)
+      mas_de_tres <- sum(frecuencias$Freq > 3)
+      num_filas_extra <- sum(duplicated(datos))
+      
+      cat("\n--- ANÁLISIS DE REPETICIONES ---\n")
+      cat("Total de filas:", nrow(datos), "\n")
+      cat("Registros únicos:", registros_unicos, "\n")
+      cat("Duplicados:", duplicados_exactos, "\n")
+      cat("Triplicados:", triplicados_exactos, "\n")
+      if (mas_de_tres > 0) cat("Más de 3 veces:", mas_de_tres, "\n")
+      cat("Total sobrantes a eliminar:", num_filas_extra, "\n")
+      cat("--------------------------------\n")
+      
+      datos_limpios <- unique(datos)
+      
+      # Conversión dinámica a numérico
+      columnas_a_convertir <- pedir_columnas("¿Qué columnas deseas forzar a numéricas? (Cambia comas por puntos)", names(datos_limpios))
+      for (col in columnas_a_convertir) {
+        datos_limpios[[col]] <- suppressWarnings(as.numeric(gsub(",", ".", as.character(datos_limpios[[col]]))))
+      }
+      
+      if (num_filas_extra > 0) {
+        directorio <- dirname(ruta_archivo)
+        nombre_base <- tools::file_path_sans_ext(basename(ruta_archivo)) 
+        nueva_ruta <- file.path(directorio, paste0(nombre_base, "_limpio.csv"))
+        write.table(datos_limpios, file = nueva_ruta, sep = ";", row.names = FALSE, quote = FALSE)
+        cat("¡Éxito! Archivo limpio guardado en:\n", nueva_ruta, "\n")
+      } else {
+        cat("Los datos ya estaban limpios.\n")
       }
     }
+    
+    # ==============================================================================
+    # 2. ESTADÍSTICAS Y DISTRIBUCIÓN
+    # ==============================================================================
+    else if (opcion == "2") {
+      cat("\n--- ESTADÍSTICAS DESCRIPTIVAS ---\n")
+      cols_num <- pedir_columnas("¿Qué columnas numéricas quieres analizar?", names(datos_limpios))
+      
+      if (length(cols_num) > 0) {
+        datos_num <- datos_limpios[, cols_num, drop = FALSE]
+        
+        mis_estadisticos <- function(x) {
+          if(!is.numeric(x)) return(rep(NA, 5))
+          c(Minimo = min(x, na.rm = TRUE),
+            Maximo = max(x, na.rm = TRUE),
+            Media = round(mean(x, na.rm = TRUE), 2),
+            Mediana = median(x, na.rm = TRUE),
+            Desv_Estandar = round(sd(x, na.rm = TRUE), 2))
+        }
+        
+        tabla_resultados <- t(sapply(datos_num, mis_estadisticos))
+        print(tabla_resultados)
+        
+        cat("\n=> Generando gráficos. Cierra el gráfico para continuar o pulsa ENTER si R te lo pide.\n")
+        old_par <- par(ask = TRUE, mfrow = c(1, 2))
+        
+        for (col in cols_num) {
+          if(is.numeric(datos_num[[col]])) {
+            hist(datos_num[[col]], main = paste("Distribución:", col), xlab = col, col = "lightblue", border = "black")
+            boxplot(datos_num[[col]], main = paste("Boxplot:", col), ylab = col, col = "lightgreen", outcol = "red", outpch = 19)
+          }
+        }
+        par(old_par)
+      }
+    }
+    
+    # ==============================================================================
+    # 3. VALORES FALTANTES
+    # ==============================================================================
+    else if (opcion == "3") {
+      cat("\n--- VALORES FALTANTES ---\n")
+      total_filas <- nrow(datos_limpios)
+      for (columna in names(datos_limpios)) {
+        faltantes <- sum(is.na(datos_limpios[[columna]]))
+        porcentaje <- round((faltantes / total_filas) * 100, 2)
+        cat(sprintf("• '%s': %d valores faltantes (%.2f%% del total).\n", columna, faltantes, porcentaje))
+      }
+    }
+    
+    # ==============================================================================
+    # 4. RECUENTOS CATEGÓRICOS
+    # ==============================================================================
+    else if (opcion == "4") {
+      cat("\n--- VARIABLES CUALITATIVAS ---\n")
+      cols_cat <- pedir_columnas("¿Qué variables categóricas deseas visualizar?", names(datos_limpios))
+      
+      if (length(cols_cat) > 0) {
+        old_par <- par(ask = TRUE, mfrow = c(1, 2))
+        for (var in cols_cat) {
+          cat(sprintf("\nCategoría (%s) | Recuento | Proporción\n", var))
+          cat("-------------------------------------------------\n")
+          tabla_frecuencias <- table(datos_limpios[[var]])
+          proporciones <- prop.table(tabla_frecuencias) * 100
+          
+          for (nivel in names(tabla_frecuencias)) {
+            cat(sprintf("%s\t\t | %d\t    | %.2f%%\n", nivel, tabla_frecuencias[nivel], proporciones[nivel]))
+          }
+          
+          barplot(tabla_frecuencias, main = paste("Barras:", var), col = "coral", xlab = var, ylab = "Frecuencia")
+          pie(tabla_frecuencias, main = paste("Proporción:", var), col = rainbow(length(tabla_frecuencias)))
+        }
+        par(old_par)
+      }
+    }
+    
+    # ==============================================================================
+    # 5. MATRIZ DE CORRELACIÓN
+    # ==============================================================================
+    else if (opcion == "5") {
+      cat("\n--- MATRIZ DE CORRELACIÓN ---\n")
+      cols_cor <- pedir_columnas("¿Qué variables numéricas quieres incluir en la correlación?", names(datos_limpios))
+      
+      if(length(cols_cor) > 1) {
+        vars_num <- datos_limpios[, cols_cor, drop = FALSE]
+        matriz_cor <- cor(vars_num, use = "complete.obs", method = "pearson")
+        print(round(matriz_cor, 2))
+      } else {
+        cat("⚠️ Necesitas al menos 2 columnas para una correlación.\n")
+      }
+    }
+    
+    # ==============================================================================
+    # 6. RELACIÓN ENTRE VARIABLES NUMÉRICAS
+    # ==============================================================================
+    else if (opcion == "6") {
+      cat("\n--- RELACIÓN ENTRE VARIABLES NUMÉRICAS ---\n")
+      cols_rel <- pedir_columnas("¿Qué variables numéricas quieres comparar entre sí?", names(datos_limpios))
+      
+      if(length(cols_rel) > 1) {
+        datos_filtrados <- datos_limpios[, cols_rel, drop = FALSE]
+        n <- length(cols_rel)
+        
+        for(i in 1:(n-1)) {
+          for(j in (i+1):n) {
+            var1_nombre <- cols_rel[i]
+            var2_nombre <- cols_rel[j]
+            var1 <- datos_filtrados[[var1_nombre]]
+            var2 <- datos_filtrados[[var2_nombre]]
+            
+            tabla <- table(var1, var2)
+            test_chi <- suppressWarnings(chisq.test(tabla, simulate.p.value = TRUE))
+            
+            correlacion <- cor(var1, var2, use = "complete.obs")
+            direccion <- ifelse(correlacion > 0, "positiva", "negativa")
+            
+            if(is.na(correlacion)) { fuerza <- "Desconocida" }
+            else if(abs(correlacion) >= 0.7) { fuerza <- "Alta" } 
+            else if(abs(correlacion) >= 0.4) { fuerza <- "Moderada" } 
+            else { fuerza <- "Débil" }
+            
+            cat(sprintf("\n--- %s vs %s ---\n", var1_nombre, var2_nombre))
+            cat(sprintf("• Chi-cuadrado p-valor: %.4f ", test_chi$p.value))
+            cat(ifelse(test_chi$p.value < 0.05, "(Significativa).\n", "(No significativa).\n"))
+            cat(sprintf("• Correlación: %.3f (%s, %s).\n", correlacion, fuerza, direccion))
+          }
+        }
+      } else {
+        cat("⚠️ Necesitas al menos 2 columnas.\n")
+      }
+    }
+    
+    # ==============================================================================
+    # 7. RELACIÓN CON LA VARIABLE OBJETIVO
+    # ==============================================================================
+    else if (opcion == "7") {
+      cat("\n--- RELACIÓN CON VARIABLE OBJETIVO ---\n")
+      target <- readline(prompt = "¿Cuál es el nombre de tu variable objetivo (ej. count)? ")
+      
+      if (target %in% names(datos_limpios)) {
+        cols_cat_target <- pedir_columnas("¿Con qué variables categóricas quieres agruparla?", names(datos_limpios))
+        
+        for (cat_var in cols_cat_target) {
+          cat(sprintf("\n• Promedio de '%s' según '%s':\n", target, cat_var))
+          # Agrupación dinámica en lugar de hardcodear 1, 2, 3...
+          agrupado <- aggregate(datos_limpios[[target]] ~ datos_limpios[[cat_var]], FUN = mean, na.rm = TRUE)
+          colnames(agrupado) <- c(cat_var, paste("Media de", target))
+          print(agrupado)
+        }
+      } else {
+        cat("⚠️ La variable objetivo introducida no existe.\n")
+      }
+    }
+    
+    else {
+      cat("⚠️ Opción no válida. Por favor, elige un número del 0 al 7.\n")
+    }
   }
-  cat("=== FIN DEL ANÁLISIS 5.2 ===\n\n")
-
-  # ==============================================================================
-  # 7. PUNTO 5.3 - RELACIÓN CON LA VARIABLE OBJETIVO
-  # ==============================================================================
-  cat("--- 5.3. Relación con la Variable Objetivo (count) ---\n")
-  if("count" %in% names(datos_limpios)) {
-    if("season" %in% names(datos_limpios)) {
-      cat("\n• Relación season (Estación) vs. count:\n")
-      cat(sprintf("o Primavera (1): %.2f\n", mean(datos_limpios$count[datos_limpios$season == 1], na.rm = TRUE)))
-      cat(sprintf("o Verano (2): %.2f\n", mean(datos_limpios$count[datos_limpios$season == 2], na.rm = TRUE)))
-      cat(sprintf("o Otoño (3): %.2f\n", mean(datos_limpios$count[datos_limpios$season == 3], na.rm = TRUE)))
-      cat(sprintf("o Invierno (4): %.2f\n", mean(datos_limpios$count[datos_limpios$season == 4], na.rm = TRUE)))
-      cat("o Hallazgo: Otoño (3) tiene el promedio más alto; Primavera (1) el menor.\n")
-    }
-    
-    if("workingday" %in% names(datos_limpios)) {
-      cat("\n• Relación workingday vs. count:\n")
-      cat(sprintf("o Fin de semana/Festivo (0): %.2f\n", mean(datos_limpios$count[datos_limpios$workingday == 0], na.rm = TRUE)))
-      cat(sprintf("o Día Laborable (1): %.2f\n", mean(datos_limpios$count[datos_limpios$workingday == 1], na.rm = TRUE)))
-      cat("o Hallazgo: Días laborables muestran un promedio ligeramente superior.\n")
-    }
-    
-    if("holiday" %in% names(datos_limpios)) {
-      cat("\n• Relación holiday vs. count:\n")
-      cat(sprintf("o No Festivo (0): %.2f\n", mean(datos_limpios$count[datos_limpios$holiday == 0], na.rm = TRUE)))
-      cat(sprintf("o Festivo (1): %.2f\n", mean(datos_limpios$count[datos_limpios$holiday == 1], na.rm = TRUE)))
-      cat("o Hallazgo: Días no festivos presentan un alquiler superior.\n")
-    }
-    
-    if("weather" %in% names(datos_limpios)) {
-      cat("\n• Relación weather vs. count:\n")
-      cat(sprintf("o Despejado (1): %.2f\n", mean(datos_limpios$count[datos_limpios$weather == 1], na.rm = TRUE)))
-      cat(sprintf("o Nublado (2): %.2f\n", mean(datos_limpios$count[datos_limpios$weather == 2], na.rm = TRUE)))
-      cat(sprintf("o Lluvia ligera (3): %.2f\n", mean(datos_limpios$count[datos_limpios$weather == 3], na.rm = TRUE)))
-      cat(sprintf("o Tormenta (4): %.2f\n", mean(datos_limpios$count[datos_limpios$weather == 4], na.rm = TRUE)))
-      cat("o Hallazgo: El clima despejado cuenta con el promedio más alto.\n")
-    }
-  }
-
-  # --- RESTAURAR CONFIGURACIÓN DE GRÁFICOS ---
-  par(old_par) # Devuelve R a su comportamiento normal sin pedir "Enter"
-  par(mfrow = c(1, 1)) 
-  
-  cat("\n======================================================\n")
-  cat(" ANÁLISIS COMPLETADO CON ÉXITO \n")
-  cat("======================================================\n")
 }
