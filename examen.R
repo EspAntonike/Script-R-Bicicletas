@@ -36,10 +36,11 @@ examen <- function() {
     cat("5. Matriz de correlación\n")
     cat("6. Relación entre variables numéricas\n")
     cat("7. Relación con la variable objetivo\n")
+    cat("8. Normalizar (Clasificar numérica en Bajo/Medio/Alto)\n")
     cat("0. Salir\n")
     cat("======================================================\n")
     
-    opcion <- readline(prompt = "Elige una opción (0-7): ")
+    opcion <- readline(prompt = "Elige una opción (0-8): ")
     
     if (opcion == "0") {
       cat("¡Saliendo del programa! Hasta pronto.\n")
@@ -47,13 +48,13 @@ examen <- function() {
     }
     
     # Validar opción
-    if (!(opcion %in% as.character(1:7))) {
-      cat("⚠️ Opción no válida. Por favor, elige un número del 0 al 7.\n")
+    if (!(opcion %in% as.character(1:8))) {
+      cat("⚠️ Opción no válida. Por favor, elige un número del 0 al 8.\n")
       next
     }
     
     # ==============================================================================
-    # CARGA DE DATOS CENTRALIZADA (Se ejecuta en cualquier opción del 1 al 7)
+    # CARGA DE DATOS CENTRALIZADA (Se ejecuta en cualquier opción del 1 al 8)
     # ==============================================================================
     cat("\nPor favor, selecciona el archivo CSV a procesar en la ventana emergente...\n")
     ruta_archivo <- file.choose()
@@ -268,6 +269,54 @@ examen <- function() {
         }
       } else {
         cat("⚠️ La variable objetivo introducida no existe en el archivo seleccionado.\n")
+      }
+    }
+    
+    # ==============================================================================
+    # 8. NORMALIZAR / CLASIFICAR EN BAJO, MEDIO, ALTO
+    # ==============================================================================
+    else if (opcion == "8") {
+      cat("\n--- CLASIFICAR VARIABLE NUMÉRICA ---\n")
+      cols_solo_num <- names(datos_limpios)[sapply(datos_limpios, is.numeric)]
+      
+      if (length(cols_solo_num) == 0) {
+        cat("⚠️ No hay variables numéricas en el dataset para clasificar.\n")
+      } else {
+        cat("Columnas numéricas disponibles:", paste(cols_solo_num, collapse = ", "), "\n")
+        var_norm <- readline(prompt = "¿Qué variable numérica quieres clasificar en Bajo/Medio/Alto? ")
+        var_norm <- trimws(var_norm)
+        
+        if (var_norm %in% cols_solo_num) {
+          nueva_columna <- paste0(var_norm, "_rango")
+          
+          # La dividimos en 3 intervalos del mismo tamaño usando cut()
+          datos_limpios[[nueva_columna]] <- cut(
+            datos_limpios[[var_norm]], 
+            breaks = 3, 
+            labels = c("Bajo", "Medio", "Alto"),
+            include.lowest = TRUE
+          )
+          
+          cat(sprintf("\n¡Éxito! Se ha creado la clasificación para '%s'.\n", var_norm))
+          cat("Resumen de la nueva distribución:\n")
+          cat("-------------------------------------------------\n")
+          
+          # Mostramos cómo ha quedado la clasificación
+          tabla_clasif <- table(datos_limpios[[nueva_columna]], useNA = "ifany")
+          print(tabla_clasif)
+          
+          # Damos la opción de guardar este nuevo dataset
+          guardar <- readline(prompt = "\n¿Deseas guardar el dataset con esta nueva columna añadida? (s/n): ")
+          if (tolower(trimws(guardar)) == "s") {
+            directorio <- dirname(ruta_archivo)
+            nombre_base <- tools::file_path_sans_ext(basename(ruta_archivo)) 
+            nueva_ruta <- file.path(directorio, paste0(nombre_base, "_clasificado.csv"))
+            write.table(datos_limpios, file = nueva_ruta, sep = ";", row.names = FALSE, quote = FALSE)
+            cat("¡Archivo guardado en:\n", nueva_ruta, "\n")
+          }
+        } else {
+          cat("⚠️ La variable introducida no es válida o no es numérica.\n")
+        }
       }
     }
   }
